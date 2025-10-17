@@ -1,0 +1,433 @@
+Title,Body,Labels,Milestone
+Initialize repository with tooling,"Set up repo with pyproject.toml, ruff/black/mypy, pytest, .pre-commit-config.yaml.
+Create basic folder scaffold and placeholder files.
+
+**Acceptance Criteria**
+- `poetry install` or `pip install -e .` works
+- `pytest -q` runs with 0 failing tests (even if none yet)
+- `pre-commit run --all-files` passes
+- Folder structure created as per ARCHITECTURE plan
+
+**Dependencies**
+- None
+
+**Notes**
+Adopt Conventional Commits and semantic versioning.","type:infra,priority:P0,area:repo",M0: Repo & Foundations
+Define project configuration system,"Decide between Hydra or YAML+dataclasses. Implement `core/config.py` to load structured configs,
+plus a top-level `CONFIG.yaml` with example values.
+
+**Acceptance Criteria**
+- `core/config.py` loads configs with environment overrides
+- A sample `CONFIG.yaml` exists (dev defaults)
+- CLI scripts accept `--config` path
+
+**Dependencies**
+- Initialize repository with tooling","type:feature,priority:P1,area:core",M0: Repo & Foundations
+Define data contracts & event types,"Create `core/types.py` with typed schemas: Tick, LOBSnapshot, FeatureVector, Signal, Decision, Order, Fill, RunMetadata.
+Include `ts`, `instrument`, and `run_id` in appropriate types.
+
+**Acceptance Criteria**
+- Types defined with docstrings
+- JSON-serializable pydantic/dataclasses models
+- Version field for schema evolution
+
+**Dependencies**
+- Initialize repository with tooling","type:feature,priority:P0,area:core",M0: Repo & Foundations
+Author ARCHITECTURE.md & PROTOCOL.md,"Write high-level system architecture and formalize event protocol (publish/consume contracts).
+
+**Acceptance Criteria**
+- `docs/ARCHITECTURE.md` and `docs/PROTOCOL.md` committed
+- Dataflow diagram (Mermaid) included
+- Clear module boundaries
+
+**Dependencies**
+- Define data contracts & event types","type:docs,priority:P1,area:docs",M0: Repo & Foundations
+Set up Docker & Devcontainer,"Create Dockerfile and docker-compose for local stack. Optionally devcontainer config for VSCode.
+
+**Acceptance Criteria**
+- `docker build` succeeds
+- `docker compose up` runs base services (API/UI stubs)
+- Devcontainer opens with tooling ready
+
+**Dependencies**
+- Initialize repository with tooling","type:infra,priority:P1,area:infra",M0: Repo & Foundations
+Implement synthetic LOB simulator,"Create `data/sources/synthetic_lob.py` generating deterministic, regime-switching LOB/tick streams.
+
+**Acceptance Criteria**
+- Seed parameter produces identical streams across runs
+- Supports calm/volatile regimes with configurable switches
+- Emits Tick/LOBSnapshot per protocol
+
+**Dependencies**
+- Define data contracts & event types","type:feature,priority:P0,area:ingestion",M1: Ingestion & Replay
+Implement live crypto adapter (read-only),"Create `data/sources/live_binance.py` (or similar) for read-only price/ticker snapshots.
+No keys required; ensure rate limits and graceful backoff.
+
+**Acceptance Criteria**
+- Adapter emits Tick events
+- Handles network errors and retries
+- Can be disabled via config
+
+**Dependencies**
+- Define data contracts & event types","type:feature,priority:P2,area:ingestion",M1: Ingestion & Replay
+Build replay reader with event-clock,"Implement `data/replay/reader.py` to replay recorded Parquet/CSV streams with event-time control
+(play/pause/seek, speed multiplier).
+
+**Acceptance Criteria**
+- Deterministic replay using recorded files
+- CLI: `python scripts/run_replay.py --config CONFIG.yaml`
+- Golden-file test for determinism
+
+**Dependencies**
+- Implement synthetic LOB simulator","type:feature,priority:P0,area:ingestion",M1: Ingestion & Replay
+Ingestion unit tests & golden-file test,"Add tests for LOB simulator and replay reader. Create golden files to ensure deterministic output per seed.
+
+**Acceptance Criteria**
+- `tests/test_data.py` covers >90% lines in ingestion
+- Golden-file regression test in CI
+
+**Dependencies**
+- Build replay reader with event-clock","type:test,priority:P0,area:ingestion",M1: Ingestion & Replay
+Implement rolling statistics features,"Add `features/transforms.py` with rolling returns, EWMA volatility, z-scores, microstructure stats.
+
+**Acceptance Criteria**
+- Windowing API defined and tested
+- Unit tests with synthetic series
+- Stored in Parquet with schema
+
+**Dependencies**
+- Build replay reader with event-clock","type:feature,priority:P0,area:features",M2: Features & Graph
+Order-imbalance & liquidity features,"Compute order-imbalance, spread, depth, VPIN-like proxy if available.
+
+**Acceptance Criteria**
+- Functions documented
+- Benchmarks show per-event latency < target threshold
+- Added to feature store
+
+**Dependencies**
+- Implement rolling statistics features","type:feature,priority:P1,area:features",M2: Features & Graph
+Feature store & catalog (Parquet + DuckDB),"Implement `features/store.py` to write/read partitioned Parquet with a small catalog (DuckDB/pyarrow).
+
+**Acceptance Criteria**
+- Partitions by date/asset
+- Schema & metadata tracked
+- Simple query API
+
+**Dependencies**
+- Implement rolling statistics features","type:feature,priority:P0,area:features",M2: Features & Graph
+Dynamic market graph builder,"Implement `features/graph_builder.py` to create time-varying asset graphs based on rolling correlation/partial correlation.
+
+**Acceptance Criteria**
+- Edge weights update over windows
+- Snapshot export per timestep
+- Unit tests on synthetic data
+
+**Dependencies**
+- Feature store & catalog (Parquet + DuckDB)","type:feature,priority:P0,area:graph",M2: Features & Graph
+Feature & graph tests,"Add unit tests for transforms and graph builder; include edge-case tests (missing data, zero variance).
+
+**Acceptance Criteria**
+- `tests/test_features.py` and `tests/test_graph.py` pass
+- Coverage >85% for these modules
+
+**Dependencies**
+- Dynamic market graph builder","type:test,priority:P0,area:features",M2: Features & Graph
+Event-driven backtester engine,"Implement `backtest/engine.py` consuming events, applying strategy/policy, and producing fills & PnL.
+
+**Acceptance Criteria**
+- Plug-and-play Strategy interface
+- Supports both synthetic and replay streams
+- Deterministic outcomes on fixed seeds
+
+**Dependencies**
+- Build replay reader with event-clock","type:feature,priority:P0,area:backtest",M3: Backtester & Baselines
+"Slippage, fees, and latency model","Model slippage as function of spread/vol; include fixed fees and latency knobs.
+
+**Acceptance Criteria**
+- Configurable parameters in CONFIG.yaml
+- Unit tests for edge cases (zero liquidity, high latency)
+- Integrated into backtester
+
+**Dependencies**
+- Event-driven backtester engine","type:feature,priority:P1,area:backtest",M3: Backtester & Baselines
+Baseline strategies (momentum & mean reversion),"Implement two simple baselines to validate pipeline and provide reference metrics.
+
+**Acceptance Criteria**
+- Strategies implement common interface
+- Backtest runs and outputs metrics
+- Baseline report in `docs/EXPERIMENTS.md`
+
+**Dependencies**
+- Event-driven backtester engine","type:feature,priority:P1,area:strategy",M3: Backtester & Baselines
+Metrics & reporting module,"Create `backtest/metrics.py` computing PnL, Sharpe, Sortino, max DD, turnover, hit rate, holding time.
+
+**Acceptance Criteria**
+- Unit-tested formulas with synthetic series
+- JSON/CSV export for dashboard
+- Hooks into CI artifact upload
+
+**Dependencies**
+- Event-driven backtester engine","type:feature,priority:P0,area:backtest",M3: Backtester & Baselines
+Bayesian state-space (Kalman) signal,"Implement `models/bayes/kalman.py` producing latent trend/volatility estimates and uncertainty bands.
+
+**Acceptance Criteria**
+- Predicts next-step return distribution
+- Calibrated uncertainty on synthetic data
+- Benchmarked latency
+
+**Dependencies**
+- Metrics & reporting module","type:feature,priority:P0,area:model-bayes",M4: Modeling Core (Bayes + GNN)
+Temporal GNN dataset builder,"Prepare sequences of graph snapshots & node features for supervised prediction (next-step return or class).
+
+**Acceptance Criteria**
+- Sliding-window dataset API
+- Train/val/test splits by regime
+- Saved datasets reproducible by seed
+
+**Dependencies**
+- Dynamic market graph builder","type:feature,priority:P0,area:model-gnn",M4: Modeling Core (Bayes + GNN)
+Temporal GNN model & trainer,"Implement PyTorch Geometric model (e.g., GCN/LSTM hybrid or T-GNN) with trainer & early stopping.
+
+**Acceptance Criteria**
+- Reproducible training via config
+- Validation curves & checkpoints
+- Inference latency measured
+
+**Dependencies**
+- Temporal GNN dataset builder","type:feature,priority:P0,area:model-gnn",M4: Modeling Core (Bayes + GNN)
+Model registry & unified interface,"Provide a common `predict(features)->Signal` interface and registry to select models via config.
+
+**Acceptance Criteria**
+- Both Kalman and GNN usable via same interface
+- Simple CLI switch selects model
+- Unit tests for interface compliance
+
+**Dependencies**
+- Bayesian state-space (Kalman) signal
+- Temporal GNN model & trainer","type:feature,priority:P0,area:model-core",M4: Modeling Core (Bayes + GNN)
+Signal-to-position policy mapping,"Implement mapping from model signal to position size; include risk-scaling by uncertainty (e.g., Kelly-tempered).
+
+**Acceptance Criteria**
+- Configurable thresholds and caps
+- Backtest integration
+- Unit tests with synthetic signals
+
+**Dependencies**
+- Model registry & unified interface","type:feature,priority:P0,area:strategy",M5: Decision & Risk
+Risk manager (exposure/stop-loss/drawdown guard),"Enforce global and per-asset constraints, stop-loss, and drawdown guard across the run.
+
+**Acceptance Criteria**
+- Configurable limits
+- Violations logged and actions taken
+- Tests cover extreme scenarios
+
+**Dependencies**
+- Signal-to-position policy mapping","type:feature,priority:P0,area:risk",M5: Decision & Risk
+Bandit policy selector (UCB/Thompson),"Implement bandit over strategy variants to adapt to regimes (arms = model+threshold combos).
+
+**Acceptance Criteria**
+- Online selection improves reward in synthetic non-stationary tests
+- Switch decisions logged for explainability
+
+**Dependencies**
+- Risk manager (exposure/stop-loss/drawdown guard)","type:feature,priority:P2,area:strategy",M5: Decision & Risk
+"FastAPI service (metrics, decisions, runs)","Expose endpoints to fetch run metrics, positions, decisions, and configs.
+
+**Acceptance Criteria**
+- `/health`, `/runs/{id}`, `/runs/{id}/metrics`, `/runs/{id}/decisions`
+- JSON schemas validated
+- Basic auth or token from .env
+
+**Dependencies**
+- Metrics & reporting module","type:feature,priority:P0,area:api",M6: Explainability & UI
+Streamlit dashboard skeleton,"Build a dashboard with tabs: Watchlist, Signals, Positions & Risk, PnL & Drawdown, Explanations, Runs.
+
+**Acceptance Criteria**
+- Live refresh supported
+- Works against replay and backtest outputs
+- Degrades gracefully if endpoint unavailable
+
+**Dependencies**
+- FastAPI service (metrics, decisions, runs)","type:feature,priority:P0,area:ui",M6: Explainability & UI
+Explainability: Bayesian posterior & uncertainty cards,"Render posterior mean, variance bands, and link to position sizing rationale.
+
+**Acceptance Criteria**
+- Each decision shows uncertainty info
+- Stored with run artifacts
+- Unit test for explanation object schema
+
+**Dependencies**
+- Streamlit dashboard skeleton","type:feature,priority:P1,area:explain",M6: Explainability & UI
+Explainability: GNN attributions (Integrated Gradients),"Provide feature/node importance visualization for GNN outputs. If needed, add proxy SHAP on final MLP.
+
+**Acceptance Criteria**
+- Attribution plots render in dashboard
+- Runtime acceptable for replay
+- Explanation linked to decision id
+
+**Dependencies**
+- Streamlit dashboard skeleton
+- Temporal GNN model & trainer","type:feature,priority:P2,area:explain",M6: Explainability & UI
+Scenario analysis tool,"Add a UI panel to perturb key inputs (e.g., volatility +10%) and recompute signal/risk for counterfactual insight.
+
+**Acceptance Criteria**
+- Deterministic recomputation from saved state
+- Results visualized and downloadable
+- Guard against invalid inputs
+
+**Dependencies**
+- Streamlit dashboard skeleton","type:feature,priority:P2,area:ui",M6: Explainability & UI
+"GitHub Actions: lint, test, build","Add CI to run ruff/black/mypy, unit tests, and build Docker image on PRs and main.
+
+**Acceptance Criteria**
+- Workflow badge in README
+- PRs block on CI failures
+- Test artifacts uploaded
+
+**Dependencies**
+- Initialize repository with tooling
+- Set up Docker & Devcontainer","type:infra,priority:P0,area:ci",M7: Infra & CI/CD
+Structured logging & error handling,"Integrate structlog or loguru. Standardize error envelopes and add `run_id` correlation.
+
+**Acceptance Criteria**
+- JSON logs with context
+- Exceptions include run metadata
+- Log level configurable
+
+**Dependencies**
+- Event-driven backtester engine","type:feature,priority:P1,area:infra",M7: Infra & CI/CD
+Secrets & configuration management,"Support `.env` for secrets and environment-specific configs. Document safe practices.
+
+**Acceptance Criteria**
+- `.env.example` provided
+- Secrets never logged
+- Docs updated
+
+**Dependencies**
+- Define project configuration system","type:infra,priority:P1,area:infra",M7: Infra & CI/CD
+"Contributing, PR template, and codeowners","Add CONTRIBUTING.md, PULL_REQUEST_TEMPLATE.md, and (optional) CODEOWNERS.
+
+**Acceptance Criteria**
+- Templates in `.github/`
+- Contribution steps documented
+- Reviewer checklist included
+
+**Dependencies**
+- Author ARCHITECTURE.md & PROTOCOL.md","type:docs,priority:P2,area:repo",M7: Infra & CI/CD
+Experiment configuration & registry,"Create an experiment registry (YAML configs) for named runs with seeds, data ranges, and models.
+
+**Acceptance Criteria**
+- `EXPERIMENTS.md` lists canonical configs
+- CLI to run experiments by name
+- Artifacts stored per run
+
+**Dependencies**
+- Model registry & unified interface","type:feature,priority:P0,area:evaluation",M8: Evaluation & Reports
+Performance & latency profiling,"Add timing probes and a report for ingestion, features, training, inference, and backtest loops.
+
+**Acceptance Criteria**
+- Profiling report (CSV/Markdown)
+- Latency budget documented
+- Regressions flagged in CI (basic thresholds)
+
+**Dependencies**
+- Event-driven backtester engine","type:feature,priority:P1,area:evaluation",M8: Evaluation & Reports
+Model Card & Data Lineage docs,"Draft `MODEL_CARD.md` and `DATA_LINEAGE.md` documenting assumptions, biases, data sources, and transforms.
+
+**Acceptance Criteria**
+- Completed docs in `docs/`
+- Linked from README
+- Versioned alongside configs
+
+**Dependencies**
+- Experiment configuration & registry","type:docs,priority:P0,area:docs",M8: Evaluation & Reports
+Generate benchmark report & plots,"Produce comparison plots (PnL, DD, Sharpe) for baselines vs Bayes vs GNN across regimes.
+
+**Acceptance Criteria**
+- `reports/benchmark_[date].md` with figures
+- CSV of metrics stored
+- Used in demo deck
+
+**Dependencies**
+- Experiment configuration & registry","type:feature,priority:P1,area:evaluation",M8: Evaluation & Reports
+README with badges and quickstart,"Write a crisp README: project purpose, one-command run, screenshots/gifs, CI badge, Docker instructions.
+
+**Acceptance Criteria**
+- Copy-paste quickstart works
+- Clear positioning for interviews
+- Links to docs and demo video
+
+**Dependencies**
+- GitHub Actions: lint, test, build","type:docs,priority:P0,area:docs",M9: Demo Pack & Polish
+Architecture diagram & poster figure,"Produce a single-page diagram (Mermaid or exported PNG) summarizing the pipeline for interviews.
+
+**Acceptance Criteria**
+- Diagram in `docs/`
+- Included in README
+- Legible when printed A4
+
+**Dependencies**
+- Author ARCHITECTURE.md & PROTOCOL.md","type:docs,priority:P1,area:docs",M9: Demo Pack & Polish
+2-minute demo script & storyboard,"Write a script and capture a short video: dashboard walkthrough, one decision explanation, results highlights.
+
+**Acceptance Criteria**
+- Script in `docs/demo_script.md`
+- Screen recording stored under `demo/`
+- Link added to README
+
+**Dependencies**
+- Streamlit dashboard skeleton","type:docs,priority:P1,area:demo",M9: Demo Pack & Polish
+Tag v0.1 and prepare release notes,"Create the first tagged release with changelog and binaries (docker image ref).
+
+**Acceptance Criteria**
+- Git tag `v0.1.0` created
+- Release notes drafted
+- Links to demo & docs
+
+**Dependencies**
+- README with badges and quickstart","type:release,priority:P1,area:repo",M9: Demo Pack & Polish
+Regime detector (HMM/HSMM),"Add a regime detection module to switch policies based on latent market states.
+
+**Acceptance Criteria**
+- Regimes identified on synthetic data
+- Improves performance in non-stationary tests
+- Integrated with policy selector
+
+**Dependencies**
+- Bandit policy selector (UCB/Thompson)","type:feature,priority:P3,area:research",Stretch Goals
+Reward Machines integration,"Encode trace-level constraints with Reward Machines; log satisfaction metrics.
+
+**Acceptance Criteria**
+- RM spec loaded from file
+- Violations tracked per run
+- Optional gating of actions
+
+**Dependencies**
+- Risk manager (exposure/stop-loss/drawdown guard)","type:feature,priority:P3,area:research",Stretch Goals
+Portfolio optimizer (risk parity / Kelly tempered),"Add multi-asset allocation on top of single-signal strategies.
+
+**Acceptance Criteria**
+- Constraint-aware optimizer
+- Backtested vs single-asset baseline
+- Metrics comparable
+
+**Dependencies**
+- Signal-to-position policy mapping","type:feature,priority:P3,area:strategy",Stretch Goals
+Online learning & drift detection,"Add drift detectors and optional online-update hooks for models.
+
+**Acceptance Criteria**
+- Drift alerts logged and visualized
+- Safe rollback on degradation
+- Tests for false positives
+
+**Dependencies**
+- Experiment configuration & registry","type:feature,priority:P3,area:research",Stretch Goals
+Model governance & drift report,"Generate governance-friendly reports (performance changes, data shifts, model swaps).
+
+**Acceptance Criteria**
+- Periodic report in `reports/`
+- Flags material changes
+- Export to PDF
+
+**Dependencies**
+- Performance & latency profiling","type:feature,priority:P3,area:evaluation",Stretch Goals
