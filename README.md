@@ -1,3 +1,15 @@
 # AMIE
 
-Scaffold for the AMIE project. Install dependencies with Poetry and explore the folders under `amie/`, `tests/`, `config/`, `scripts/`, and `research/notebooks/`.
+[![CI](https://img.shields.io/badge/CI-placeholder-lightgrey)](#)
+
+Algorithmic Market Intelligence Engine toolkit.
+
+## Quickstart
+
+```bash
+poetry install && pytest
+```
+
+## Status
+
+v0.1 in progress
