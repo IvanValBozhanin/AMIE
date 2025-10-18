@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AMIEProject version="1.0">
+  <Meta>
+    <Name>AMIE — Adaptive Market Intelligence Engine</Name>
+    <Owner>Ivan Valentinov Bozhanin</Owner>
+    <Status>Pre-build planning complete; issues imported</Status>
+    <Repo>Private (issues CSV imported)</Repo>
+  </Meta>
+
+  <Purpose>
+    <OneLiner>Real-time, explainable decision system for financial data streams.</OneLiner>
+    <Why>
+      Build a single project that simultaneously signals: (1) quant math/stat strength,
+      (2) robust systems engineering, (3) decision-making + interpretability.
+      This maximizes interview appeal across quant trading, ML research, and forward-deployed software roles.
+    </Why>
+  </Purpose>
+
+  <Audience>
+    <Employer name="Jane Street" roles="Quant Trading, Quant Research, SWE"/>
+    <Employer name="Optiver" roles="Trader, Researcher, SWE"/>
+    <Employer name="IMC" roles="Trader, SWE"/>
+    <Employer name="DRW" roles="Quant Trading Analyst, Research"/>
+    <Employer name="Hudson River Trading" roles="Algo/Quant Trader"/>
+    <Employer name="Virtu" roles="Quant Trading"/>
+    <Employer name="Citadel; Citadel Securities" roles="QR, QT, SWE"/>
+    <Employer name="Jump Trading" roles="QR, QT"/>
+    <Employer name="Tower Research Capital" roles="QR, QT"/>
+    <Employer name="Flow Traders; Maven" roles="Trading Intern"/>
+    <Employer name="Two Sigma" roles="ML/Quant Research"/>
+    <Employer name="Palantir" roles="Forward Deployed SWE (FDE)"/>
+    <Employer name="Google; DeepMind; Meta AI" roles="Research/SWE Intern"/>
+    <Employer name="QuantCo" roles="Applied Scientist"/>
+    <Employer name="Robeco" roles="Super Quant Intern"/>
+    <Employer name="ETH AI Center" roles="Fellowships/Research alignment"/>
+  </Audience>
+
+  <Objectives>
+    <Objective>End-to-end system: ingest → features/graph → models → policy/risk → execution/backtest → explainable dashboard.</Objective>
+    <Objective>Ship a vertical slice quickly; iterate with Bayesian + GNN models and risk guardrails.</Objective>
+    <Objective>Demonstrate reproducibility, latency awareness, CI quality, and clear communication.</Objective>
+  </Objectives>
+
+  <NonGoals>
+    <Item>Live capital deployment or exchange connectivity requiring credentials.</Item>
+    <Item>Proprietary data or vendor-specific infrastructure.</Item>
+  </NonGoals>
+
+  <SystemOverview>
+    <Modes>Live(read-only) and Deterministic Replay share the same pipeline.</Modes>
+    <KeyFeatures>
+      <Feature>Dynamic market graph (time-varying correlations/structure).</Feature>
+      <Feature>Bayesian state-space + temporal GNN under a unified interface.</Feature>
+      <Feature>Risk-aware position sizing; execution simulator with latency/slippage.</Feature>
+      <Feature>Explainability per decision (posterior/attribution) and scenario analysis.</Feature>
+    </KeyFeatures>
+  </SystemOverview>
+
+  <Architecture>
+    <Components>
+      <Component name="Ingestion" key="data/sources/*">Synthetic LOB + optional live crypto adapter; event-clock replay.</Component>
+      <Component name="FeaturePipeline" key="features/*">Rolling stats, microstructure, feature store (Parquet+DuckDB).</Component>
+      <Component name="GraphBuilder" key="features/graph_builder.py">Time-varying asset graph snapshots.</Component>
+      <Component name="Models" key="models/*">Bayesian(Kalman) + temporal GNN (PyTorch Geometric); unified predict() API.</Component>
+      <Component name="DecisionRisk" key="strategy/*">Signal→position, risk caps, drawdown guards, optional bandit selector.</Component>
+      <Component name="Execution" key="strategy/execution/*">Slippage/fees/latency modeling; adapter stub.</Component>
+      <Component name="Backtester" key="backtest/*">Event-driven engine; metrics module.</Component>
+      <Component name="ExplainabilityUI" key="ui/*">FastAPI endpoints + Streamlit dashboard.</Component>
+      <Component name="InfraQuality" key="infra/*">Docker, CI (lint/test/build), logging, secrets, docs.</Component>
+    </Components>
+  </Architecture>
+
+  <DataContracts>
+    <Type name="Tick" fields="ts,instrument,price,qty,side"/>
+    <Type name="LOBSnapshot" fields="ts,instrument,bids,asks,spread,depth"/>
+    <Type name="FeatureVector" fields="ts,instrument,rolling_stats,imbalance,graph_feats,meta"/>
+    <Type name="Signal" fields="ts,instrument,score,uncertainty,model_version"/>
+    <Type name="Decision" fields="ts,instrument,target_position,rationale,limits"/>
+    <Type name="Order" fields="ts,instrument,side,qty,limit_price,metadata"/>
+    <Type name="Fill" fields="ts,instrument,qty,price,slippage,latency"/>
+    <Type name="RunMetadata" fields="run_id,seed,config_hash,model_version,git_sha"/>
+  </DataContracts>
+
+  <TechStack>
+    <Lang>Python 3.11+</Lang>
+    <ML>PyTorch, PyTorch Geometric</ML>
+    <Bayes>PyMC or NumPyro (optional)</Bayes>
+    <API>FastAPI</API>
+    <UI>Streamlit</UI>
+    <Data>PyArrow/Parquet, DuckDB</Data>
+    <Streaming>asyncio (Kafka optional later)</Streaming>
+    <Ops>Docker, GitHub Actions, pytest, ruff/black/mypy</Ops>
+    <Explainability>Integrated Gradients/SHAP (for GNN), posterior bands (Bayes)</Explainability>
+  </TechStack>
+
+  <RepositoryLayout>
+    <Path>amie/core, data/sources, data/replay, features, models/{bayes,gnn,rl}, strategy/{execution}, backtest, ui/{api,dashboard_app}, infra/{docker,ci}, tests, scripts, docs</Path>
+  </RepositoryLayout>
+
+  <Milestones>
+    <M id="M0">Repo & Foundations</M>
+    <M id="M1">Ingestion & Replay</M>
+    <M id="M2">Features & Graph</M>
+    <M id="M3">Backtester & Baselines</M>
+    <M id="M4">Modeling Core (Bayes + GNN)</M>
+    <M id="M5">Decision & Risk</M>
+    <M id="M6">Explainability & UI</M>
+    <M id="M7">Infra & CI/CD</M>
+    <M id="M8">Evaluation & Reports</M>
+    <M id="M9">Demo Pack & Polish</M>
+    <M id="Stretch">Regime detector, Reward Machines, Portfolio optimizer, Online learning, Governance</M>
+  </Milestones>
+
+  <KPIs>
+    <KPI>Vertical slice demo by end of M3 (ingest→baseline→backtest→simple dashboard)</KPI>
+    <KPI>Sharpe &gt; 1.0 on at least one synthetic regime; controlled max drawdown</KPI>
+    <KPI>Deterministic replay; CI green; &gt;85% test coverage on ingestion/backtest/features</KPI>
+    <KPI>Latency budget instrumented and reported end-to-end</KPI>
+  </KPIs>
+
+  <Risks>
+    <Risk>Overfitting to synthetic regimes → Mitigation: regime splits, robust baselines, ablations.</Risk>
+    <Risk>Scope creep → Mitigation: ship M3 vertical slice before advanced models.</Risk>
+    <Risk>Data/API fragility → Mitigation: offline replay default; adapters optional.</Risk>
+    <Risk>Explainability runtime cost → Mitigation: cache attributions; batch post-run.</Risk>
+  </Risks>
+
+  <OpenQuestions>
+    <Q>Hydra vs YAML+dataclasses for config?</Q>
+    <Q>Which temporal GNN (T-GCN vs GCN+LSTM) given latency targets?</Q>
+    <Q>Include RL/bandits in v0.1 or postpone?</Q>
+    <Q>How much live data to include (compliance/time trade-offs)?</Q>
+  </OpenQuestions>
+
+  <Deliverables>
+    <Item>GitHub repo with CI badge, tagged v0.1 release</Item>
+    <Item>2-min demo video; one-page architecture figure</Item>
+    <Item>MODEL_CARD.md, DATA_LINEAGE.md, EXPERIMENTS.md</Item>
+  </Deliverables>
+</AMIEProject>
