@@ -1,0 +1,13 @@
+defaults:
+  - data: synthetic
+  - model: kalman
+  - backtest: default
+  - _self_
+
+run:
+  seed: 42
+  run_id: ???  # Generated at runtime
+
+paths:
+  data_dir: data/
+  results_dir: results/

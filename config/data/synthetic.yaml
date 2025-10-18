@@ -1,0 +1,9 @@
+n_ticks: 10000
+instruments: ["BTC"]
+regimes:
+  - type: calm
+    duration: 2000
+    volatility: 0.01
+  - type: volatile
+    duration: 2000
+    volatility: 0.05

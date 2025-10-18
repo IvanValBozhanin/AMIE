@@ -1,0 +1,4 @@
+initial_capital: 100000
+slippage_bps: 5
+fee_bps: 1
+max_position_size: 1.0

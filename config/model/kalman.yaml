@@ -1,0 +1,3 @@
+process_noise: 0.001
+observation_noise: 0.01
+warmup_period: 100
