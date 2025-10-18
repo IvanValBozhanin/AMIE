@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "amie"
 version = "0.1.0"
-description = "AMIE project scaffold."
-authors = ["Ivan Yoga <ivan@example.com>"]
+description = "AMIE project."
+authors = ["Ivan Bozhanin"]
 readme = "README.md"
 package-mode = true
 
