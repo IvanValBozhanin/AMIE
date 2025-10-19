@@ -1,9 +1,13 @@
-n_ticks: 10000
-instruments: ["BTC"]
+instrument: "BTC-USD"
+regime_duration: 2000
 regimes:
-  - type: calm
-    duration: 2000
-    volatility: 0.01
-  - type: volatile
-    duration: 2000
-    volatility: 0.05
+  - volatility: 0.01
+    spread: 25.0
+    qty: 1.0
+  - volatility: 0.05
+    spread: 35.0
+    qty: 1.2
+depth: 3
+level_spread: 10.0
+tick_interval_seconds: 1.0
+n_ticks: 10000     # still handy, but used by your calling code, not the dataclass
