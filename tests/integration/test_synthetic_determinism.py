@@ -1,8 +1,8 @@
 import hashlib
 from pathlib import Path
 
-import pandas as pd
-import pyarrow  # noqa: F401
+# import pandas as pd
+# import pyarrow  # noqa: F401
 
 from amie.data.sources.synthetic_lob import SyntheticLOBGenerator
 
