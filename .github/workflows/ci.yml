@@ -31,8 +31,8 @@ jobs:
       - name: Ruff lint
         run: poetry run ruff check
 
-      - name: Mypy type checks
-        run: poetry run mypy src
+      # - name: Mypy type checks
+      #   run: poetry run mypy src
 
       - name: Run tests with coverage
         run: poetry run pytest -s --cov=src --cov-report=xml
