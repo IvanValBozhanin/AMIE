@@ -1,0 +1,14 @@
+{
+  "schema": {
+    "ts": "timestamp[ns]",
+    "instrument": "string",
+    "returns": "double",
+    "ewma_volatility": "double",
+    "z_score": "double",
+    "spread": "double",
+    "imbalance": "double"
+  },
+  "row_count": 1000,
+  "created_at": "2025-10-22T18:56:18.417460+00:00",
+  "partition_field": "date"
+}
