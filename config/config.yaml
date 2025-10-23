@@ -2,6 +2,7 @@ defaults:
   - data: synthetic
   - model: kalman
   - backtest: default
+  - training: default
   - _self_
 
 run:

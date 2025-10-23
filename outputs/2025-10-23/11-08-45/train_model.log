@@ -1,0 +1,1 @@
+[2025-10-23 11:08:45,968][__main__][INFO] - {"run_id": "my-run-001", "model": "kalman", "features_path": "/home/ivan-yoga-ubuntu/VSCodeProjects/AMIE/data/features", "results_dir": "/home/ivan-yoga-ubuntu/VSCodeProjects/AMIE/results", "timestamp": "2025-10-23T09:08:45.968355Z", "level": "info", "event": "training_start"}

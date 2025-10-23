@@ -1,0 +1,31 @@
+data:
+  instrument: BTC-USD
+  regime_duration: 2000
+  regimes:
+  - volatility: 0.01
+    spread: 25.0
+    qty: 1.0
+  - volatility: 0.05
+    spread: 35.0
+    qty: 1.2
+  depth: 3
+  level_spread: 10.0
+  tick_interval_seconds: 1.0
+  n_ticks: 10000
+model:
+  process_noise: 0.001
+  observation_noise: 0.01
+  warmup_period: 100
+  instrument: BTC-USD
+  name: kalman
+backtest:
+  initial_capital: 100000
+  slippage_bps: 5
+  fee_bps: 1
+  max_position_size: 1.0
+run:
+  seed: 42
+  run_id: ???
+paths:
+  data_dir: data/
+  results_dir: results/

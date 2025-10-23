@@ -58,34 +58,26 @@ class KalmanFilter(BaseModel):
 
     def fit(self, features: pd.DataFrame) -> None:
         """Initialise the latent state using an initial slice of returns."""
-        returns = self._extract_returns(features)
-        if returns.empty:
-            raise ValueError("Cannot fit KalmanFilter without returns data.")
-
+        # --- NaN-safe warmup slice ---
+        returns = self._extract_returns(features).astype(float)
         window = min(len(returns), max(self.warmup_period, 1))
-        warmup_returns = returns.iloc[:window]
-
-        # --- seed state from warmup ---
-        warm = warmup_returns.to_numpy(dtype=float)
-
-        # initial state: price level ≈ mean cumulative return, trend ≈ mean return
-        self._state = np.array([[float(np.cumsum(warm).mean())],
-                                [float(warm.mean())]], dtype=float)
-
-        # initial trend variance from warmup volatility; enforce a generous prior
-        if warm.size > 1:
-            trend_var0 = float(np.var(warm, ddof=1))
-        else:
-            trend_var0 = 0.0
-
-        # Do not start over-confident: at least account for process and observation noise.
-        trend_var0 = max(trend_var0, self._Q_base_trend)
-        trend_var0 = max(trend_var0, self._R_var_base)
-        trend_var0 = max(trend_var0, 1e-10)
-
-        self._covariance = np.array([[1e-10, 0.0],
-                                    [0.0,    trend_var0]], dtype=float)
-
+        warm = returns.iloc[:window].replace([np.inf, -np.inf], np.nan)
+    
+        # NaN-safe aggregates
+        trend_init = float(np.nanmean(warm))        # mean return for trend
+        level_init = float(np.nansum(warm))         # sum of returns for level proxy
+    
+        # Fallbacks if warmup is all-NaN
+        if not np.isfinite(trend_init):
+            trend_init = 0.0
+        if not np.isfinite(level_init):
+            level_init = 0.0
+    
+        # Seed state and covariance
+        self._state = np.array([[level_init], [trend_init]], dtype=float)
+        self._covariance = np.eye(2, dtype=float)
+        # Optional sanity check (helps catch bad inputs early)
+        assert np.isfinite(self._state).all(), "Kalman state initialized to NaN/inf"
         self._fitted = True
 
     def _extract_returns(self, features: pd.DataFrame) -> pd.Series:

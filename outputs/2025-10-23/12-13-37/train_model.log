@@ -1,0 +1,2 @@
+[2025-10-23 12:13:37,220][__main__][INFO] - {"run_id": "train-20251023101337", "train_split": 0.8, "feature_run_id": null, "timestamp": "2025-10-23T10:13:37.219993Z", "level": "info", "event": "training_start"}
+[2025-10-23 12:13:37,220][__main__][INFO] - {"feature_run_id": "features", "run_id": "train-20251023101337", "timestamp": "2025-10-23T10:13:37.220135Z", "level": "info", "event": "auto_selected_feature_run"}
