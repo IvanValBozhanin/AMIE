@@ -11,3 +11,6 @@ run:
 paths:
   data_dir: data/
   results_dir: results/
+
+model:
+  name: kalman
