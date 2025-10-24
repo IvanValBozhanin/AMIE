@@ -1,3 +1,22 @@
+# CONTRACT (Module)
+# Purpose:
+#   Convert model-generated score/uncertainty pairs into bounded target positions for execution.
+# Public API:
+#   - SignalPolicy(config: Mapping | None)
+#   - SignalPolicy.compute_position(signal: Signal) -> float
+# Inputs:
+#   - config: mapping accepting optional 'policy' key with {'threshold_multiplier': float, 'max_position_size': float}.
+#   - signal: amie.core.types.Signal with fields (score:float, uncertainty:float>0, instrument:str, ...).
+# Outputs:
+#   - Target position float clipped to [-max_position_size, max_position_size]; zero inside neutral band.
+# Invariants:
+#   - threshold_multiplier>0 and max_position_size>0 validated during init; stored as floats.
+#   - Decision uses only the provided Signal (no internal state, order deterministic).
+#   - Neutral band defined by +/- threshold_multiplier * uncertainty; ties resolve to flat position.
+#   - Scaling divides directional intent by uncertainty, limiting leverage via max_position_size.
+# TODO:
+#   - Confirm caller guarantees strictly positive signal.uncertainty prior to policy invocation.
+
 """Trading policy that converts model signals into target positions."""
 
 from __future__ import annotations
@@ -27,6 +46,14 @@ class SignalPolicy:
     @staticmethod
     def _extract_policy_config(config: Mapping[str, Any] | None) -> Mapping[str, Any]:
         """Return the mapping that stores policy-specific settings."""
+        # MINI-CONTRACT: SignalPolicy._extract_policy_config
+        # Inputs:
+        #   config: optional mapping, possibly containing nested 'policy' sub-mapping.
+        # Outputs:
+        #   Mapping with policy parameters; returns {} when config falsy.
+        # Invariants:
+        #   - If config['policy'] is Mapping, returns that; otherwise returns original config.
+        #   - Does not mutate input mapping.
         if not config:
             return {}
         if "policy" in config and isinstance(config["policy"], Mapping):
@@ -35,6 +62,15 @@ class SignalPolicy:
 
     def compute_position(self, signal: Signal) -> float:
         """Return desired position for the provided signal."""
+        # MINI-CONTRACT: SignalPolicy.compute_position
+        # Inputs:
+        #   signal: Signal with float score and strictly positive uncertainty.
+        # Outputs:
+        #   Position float in [-max_position_size, max_position_size]; zero when score inside neutral band.
+        # Invariants:
+        #   - Raises ValueError if signal.uncertainty <= 0.
+        #   - Uses thresholds +/- threshold_multiplier*uncertainty; scaling is base_position/uncertainty.
+        #   - Deterministic mapping: identical signal values produce identical outputs; no stateful side effects.
         if signal.uncertainty <= 0:
             raise ValueError("Signal uncertainty must be positive")
 

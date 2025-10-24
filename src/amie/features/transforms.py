@@ -1,3 +1,26 @@
+# CONTRACT (Module)
+# Purpose:
+#   Derive rolling features (returns, EWMA vol, z-score, spread, imbalance) from LOB ticks.
+# Public API:
+#   - FeatureComputer(window_size:int=20, ewma_span:int=20).compute(df:pd.DataFrame) -> pd.DataFrame
+# Inputs:
+#   - df: DataFrame with columns {'ts','instrument','price','bid_price','ask_price','bid_qty','ask_qty'}.
+#     Rows may contain NaNs but must be sortable by 'ts'; index is ignored and reset to RangeIndex.
+# Outputs:
+#   - Feature frame with columns ['ts','instrument','returns','ewma_volatility','z_score','spread','imbalance']
+#     sorted by 'ts' ascending; length equals len(df); dtype float for derived metrics.
+# Invariants:
+#   - No mutation of input df; processing uses a sorted copy with deterministic transforms.
+#   - 'returns' = log price ratio; first row NaN, subsequent finite iff price>0 and finite.
+#   - 'ewma_volatility' uses span=ewma_span, min_periods=1 => starts at 0.0 and never NaN.
+#   - 'z_score' uses global mean/std (ddof=0) across entire df, then recenters non-zero-variance rows and
+#     forces zero-variance windows to 0.0; NaNs only where inputs invalid.
+#   - 'spread' = (ask-bid)/mid; shares sign with ask-bid; mid<=0 => NaN instead of division by zero.
+#   - 'imbalance' = (bid_qty-ask_qty)/(bid_qty+ask_qty); denominator 0 => NaN; bounded in [-1,1] when sum>0.
+#   - Computations avoid forward-looking rolling windows except for the global z-score statistics.
+# TODO:
+#   - Confirm whether global z-score statistics are acceptable for online use (introduces look-ahead).
+
 from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
@@ -14,6 +37,18 @@ class FeatureComputer:
 
     @profile("FeatureComputer.compute")
     def compute(self, df: pd.DataFrame) -> pd.DataFrame:
+        # MINI-CONTRACT: FeatureComputer.compute
+        # Inputs:
+        #   df: DataFrame with {'ts','instrument','price','bid_price','ask_price','bid_qty','ask_qty'};
+        #       'ts' sortable; numeric columns finite or NaN; length >= 1.
+        # Outputs:
+        #   DataFrame with ['ts','instrument','returns','ewma_volatility','z_score','spread','imbalance'],
+        #   sorted by 'ts', RangeIndex, len == len(df).
+        # Invariants:
+        #   - Returns at row t only depend on price[t] and price[t-1]; first return NaN.
+        #   - EWMA volatility span=self.ewma_span, min_periods=1 => no NaNs and non-negative.
+        #   - z_score uses global stats but zero-variance windows => 0.0; NaNs only from invalid inputs.
+        #   - spread shares sign with ask-bid; imbalance in [-1,1] when qty_sum>0; no mutation of df arg.
         required_cols = {"ts", "instrument", "price", "bid_price", "ask_price", "bid_qty", "ask_qty"}
         missing = required_cols.difference(df.columns)
         if missing:

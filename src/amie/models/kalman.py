@@ -1,3 +1,27 @@
+# CONTRACT (Module)
+# Purpose:
+#   Adaptive two-state Kalman filter that turns return features into trend scores and uncertainties.
+# Public API:
+#   - KalmanFilter(...).fit(features: pd.DataFrame) -> None
+#   - KalmanFilter(...).predict(features: pd.DataFrame) -> Sequence[Signal]
+#   - KalmanFilter(...).get_uncertainty(features: pd.DataFrame) -> np.ndarray
+# Inputs:
+#   - features: DataFrame with columns {'ts','instrument','returns'}; unsorted indices are sorted by 'ts';
+#     'returns' cast to float, NaN/inf allowed and treated as missing observations.
+# Outputs:
+#   - predict: list of Signal(len == len(features)) with ts/instrument propagated from features, ordered by ts.
+#   - get_uncertainty: np.ndarray[float] length len(features) giving sqrt of trend variance per row.
+#   - Internal state: 2x1 state vector [level, trend] and 2x2 covariance persisted when predictions advance.
+# Invariants:
+#   - Transition F=[[1,1],[0,1]]; observation H=[0,1]; only 'returns' observed; state/covariance float64.
+#   - Missing or non-finite returns trigger prediction-only step; covariance stays positive semidefinite with
+#     innovation variance S clipped to >=1e-12.
+#   - Adaptive Q/R variances updated via EWMA and clipped to finite bands; determinism given identical inputs.
+#   - Signals at index t depend only on features rows <= t after sorting; no future leakage post-sort.
+#   - Signal.score equals trend estimate; Signal.uncertainty = sqrt(max(trend_var,0)) >= 0; length preserved.
+# TODO:
+#   - Confirm external call sites expect auto-fit behaviour when fit() not called explicitly.
+
 """Kalman filter based signal model."""
 
 from __future__ import annotations
@@ -58,6 +82,15 @@ class KalmanFilter(BaseModel):
 
     def fit(self, features: pd.DataFrame) -> None:
         """Initialise the latent state using an initial slice of returns."""
+        # MINI-CONTRACT: KalmanFilter.fit
+        # Inputs:
+        #   features: DataFrame with column 'returns' (float convertible); first warmup_period rows
+        #   may include NaNs/inf which are ignored when seeding state.
+        # Outputs:
+        #   Seeds internal state vector [[level],[trend]] using NaN-safe sums/means; covariance reset to I.
+        # Invariants:
+        #   - Uses min(len(features), warmup_period) observations; falls back to 0.0 if all missing.
+        #   - Leaves filter marked fitted; no mutation of caller-provided DataFrame.
         # --- NaN-safe warmup slice ---
         returns = self._extract_returns(features).astype(float)
         window = min(len(returns), max(self.warmup_period, 1))
@@ -101,6 +134,19 @@ class KalmanFilter(BaseModel):
         advance_state: bool,
         collect_signals: bool,
     ) -> tuple[Sequence[Signal], np.ndarray]:
+        # MINI-CONTRACT: KalmanFilter._filter
+        # Inputs:
+        #   features: DataFrame with {'ts','instrument','returns'}; unsorted tolerated, NaNs skip updates.
+        #   advance_state: bool controlling persistence of state/covariance/adaptive variances.
+        #   collect_signals: bool toggling construction of Signal objects vs uncertainties only.
+        # Outputs:
+        #   (signals, uncertainties) where signals is list[Signal] if requested, else empty tuple; uncertainties
+        #   is np.ndarray length len(features) with non-negative floats aligned to sorted rows.
+        # Invariants:
+        #   - Auto-calls fit() once if not previously fitted.
+        #   - Each iteration performs KF predict/update with innovation-variance clipping at >=1e-12.
+        #   - Non-finite returns -> prediction-only step; adaptive Q/R mean-revert toward base variances.
+        #   - When advance_state=False, original state/covariance/variances remain unchanged.
         df = self._prepare_frame(features)
         if not self._fitted:
             # Auto-fit if not explicitly fitted yet.
@@ -199,10 +245,25 @@ class KalmanFilter(BaseModel):
     @profile("KalmanFilter.predict")
     def predict(self, features: pd.DataFrame) -> Sequence[Signal]:
         """Run the Kalman filter over features and produce signals."""
+        # MINI-CONTRACT: KalmanFilter.predict
+        # Inputs:
+        #   features: DataFrame with {'ts','instrument','returns'}; NaNs allowed.
+        # Outputs:
+        #   Sequence[Signal] length len(features), sorted by 'ts'; updates internal state and adaptive variance.
+        # Invariants:
+        #   - Persists state/covariance after processing; deterministic given current state and features.
+        #   - Signal fields mirror feature ts/instrument; score=trend, uncertainty>=0.
         signals, _ = self._filter(features, advance_state=True, collect_signals=True)
         return signals
 
     def get_uncertainty(self, features: pd.DataFrame) -> np.ndarray:
         """Return uncertainties without mutating the internal filter state."""
+        # MINI-CONTRACT: KalmanFilter.get_uncertainty
+        # Inputs:
+        #   features: DataFrame with {'ts','instrument','returns'}; processed via sorted copy.
+        # Outputs:
+        #   np.ndarray length len(features) with non-negative uncertainties; internal state unchanged.
+        # Invariants:
+        #   - Returns align with sorted features rows; repeated calls leave filter state/covariance intact.
         _, uncertainties = self._filter(features, advance_state=False, collect_signals=False)
         return uncertainties

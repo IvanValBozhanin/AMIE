@@ -1,3 +1,28 @@
+# CONTRACT (Module)
+# Purpose:
+#   Produce deterministic synthetic limit order book regimes and export ticks/LOB snapshots for testing.
+# Public API:
+#   - SyntheticLOBGenerator(seed:int, config:SyntheticLOBConfig|None)
+#   - SyntheticLOBGenerator.generate(num_ticks:int=10_000) -> Iterator[tuple[Tick, LOBSnapshot]]
+#   - SyntheticLOBGenerator.to_dataframe(num_ticks:int) -> pd.DataFrame
+# Inputs:
+#   - seed: integer forwarded to np.random.default_rng for reproducible draws each generate call.
+#   - config: SyntheticLOBConfig with regimes (volatility, spread, qty), regime_duration, depth, level_spread,
+#     tick_interval_seconds, instrument.
+#   - num_ticks: int >= 0 controlling length of stream/DataFrame; 0 yields empty iterator/DataFrame.
+# Outputs:
+#   - generate: yields (Tick, LOBSnapshot) pairs with matching timestamps and instrument per tick.
+#   - to_dataframe: DataFrame with columns ['ts','instrument','price','qty','side','spread','bid_price','bid_qty',
+#     'ask_price','ask_qty'] ordered by ts and length == num_ticks.
+# Invariants:
+#   - For fixed seed/config the tick stream is deterministic; RNG re-initialised per generate() call.
+#   - Timestamps start at 2024-01-01 00:00:00 and advance by tick_interval_seconds; strictly increasing.
+#   - Price and qty lower-bounded by 1e-6; spread>=0 as supplied by regime; bids < asks at each depth level.
+#   - Bids/asks lists each have length == config.depth with non-negative quantities; LOBSnapshot spreads echo regime.
+#   - Tick.side sampled from Side enum; recorded as Side.value preserving deterministic order.
+# TODO:
+#   - Confirm Side enum values match downstream schema expectations (string vs integer codes).
+
 """Synthetic limit order book generator for testing and research."""
 
 from __future__ import annotations
@@ -86,6 +111,15 @@ class SyntheticLOBGenerator:
 
     def generate(self, num_ticks: int = 10_000) -> Iterator[tuple[Tick, LOBSnapshot]]:
         """Yield a deterministic stream of ticks and LOB snapshots."""
+        # MINI-CONTRACT: SyntheticLOBGenerator.generate
+        # Inputs:
+        #   num_ticks: integer >= 0 specifying number of (Tick, LOBSnapshot) pairs to emit.
+        # Outputs:
+        #   Iterator producing num_ticks sequential pairs with shared timestamp/instrument.
+        # Invariants:
+        #   - Uses fresh RNG seeded with self._seed => repeated calls reproduce identical sequence.
+        #   - Timestamps strictly increasing; price, qty >= 1e-6; regime cycles every regime_duration ticks.
+        #   - Bids/asks lengths equal config.depth; spread equals regime.spread each tick.
         rng = self._rng()
         price = self.base_price
         for idx in range(num_ticks):
@@ -115,6 +149,16 @@ class SyntheticLOBGenerator:
 
     def to_dataframe(self, num_ticks: int) -> pd.DataFrame:
         """Generate ticks and convert the stream to a pandas DataFrame."""
+        # MINI-CONTRACT: SyntheticLOBGenerator.to_dataframe
+        # Inputs:
+        #   num_ticks: integer >= 0 forwarded to generate().
+        # Outputs:
+        #   DataFrame length num_ticks with columns ['ts','instrument','price','qty','side','spread','bid_price',
+        #   'bid_qty','ask_price','ask_qty'] sorted by ts.
+        # Invariants:
+        #   - Delegates to generate(), so deterministic under fixed seed/config.
+        #   - Best bid/ask extracted as first level when available; NaN if depth==0.
+        #   - Does not mutate generator state beyond deterministic consumption.
         records = []
         for tick, lob in self.generate(num_ticks):
             best_bid = lob.bids[0] if lob.bids else (np.nan, np.nan)

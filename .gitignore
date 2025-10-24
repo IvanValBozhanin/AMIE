@@ -90,3 +90,5 @@ poetry.lock
 
 # macOS
 .DS_Store
+
+dir_tree.txt
