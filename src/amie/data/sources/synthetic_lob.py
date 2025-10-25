@@ -20,6 +20,7 @@
 #   - Price and qty lower-bounded by 1e-6; spread>=0 as supplied by regime; bids < asks at each depth level.
 #   - Bids/asks lists each have length == config.depth with non-negative quantities; LOBSnapshot spreads echo regime.
 #   - Tick.side sampled from Side enum; recorded as Side.value preserving deterministic order.
+#   - FIXED: instrument column guaranteed non-null for all rows.
 # TODO:
 #   - Confirm Side enum values match downstream schema expectations (string vs integer codes).
 
@@ -159,6 +160,7 @@ class SyntheticLOBGenerator:
         #   - Delegates to generate(), so deterministic under fixed seed/config.
         #   - Best bid/ask extracted as first level when available; NaN if depth==0.
         #   - Does not mutate generator state beyond deterministic consumption.
+        #   - FIXED: instrument field always populated with config.instrument.
         records = []
         for tick, lob in self.generate(num_ticks):
             best_bid = lob.bids[0] if lob.bids else (np.nan, np.nan)
@@ -166,7 +168,7 @@ class SyntheticLOBGenerator:
             records.append(
                 {
                     "ts": tick.ts,
-                    "instrument": tick.instrument,
+                    "instrument": self.config.instrument,  # FIXED: use config.instrument directly
                     "price": tick.price,
                     "qty": tick.qty,
                     "side": tick.side.value,
@@ -178,3 +180,4 @@ class SyntheticLOBGenerator:
                 }
             )
         return pd.DataFrame.from_records(records)
+    
